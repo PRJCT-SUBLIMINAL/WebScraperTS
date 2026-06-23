@@ -27,5 +27,5 @@ export function getFirstParagraphFromHTML(html: string): string {
 }
 
 export function getURLsFromHTML(html: string, baseURL: string): string[] {
-    // new  
+
 }
