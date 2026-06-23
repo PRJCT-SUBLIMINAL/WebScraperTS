@@ -1,0 +1,17 @@
+{
+  "name": "webscraperts",
+  "version": "1.0.0",
+  "description": "For boot.dev course \"Build a web scraper in TS\"",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "tsx ./src/index.ts"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
+  }
+}
