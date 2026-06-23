@@ -5,13 +5,19 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "tsx ./src/index.ts"
+    "start": "tsx ./src/index.ts",
+    "test": "vitest run"
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@types/jsdom": "^28.0.3",
     "@types/node": "^26.0.0",
     "tsx": "^4.22.4",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  },
+  "dependencies": {
+    "jsdom": "^29.1.1"
   }
 }
