@@ -31,7 +31,7 @@ describe("normalizeURL tests", () => {
 
 describe("first heading from html", () => {
     test("Contains h1 heading", () => {
-        const heading = getHeadingFromHTML(`
+        const html = getHeadingFromHTML(`
             <html>
                 <body>
                     <h1>Test heading</h1>
@@ -39,11 +39,11 @@ describe("first heading from html", () => {
                 </body>
             </html>   
         `);
-        expect(heading).toBe("Test heading");
+        expect(html).toBe("Test heading");
     });
 
     test("Contains h2 heading", () => {
-        const heading = getHeadingFromHTML(`
+        const html = getHeadingFromHTML(`
             <html>
                 <body>
                     <h2>Test heading h2</h2>
@@ -51,11 +51,11 @@ describe("first heading from html", () => {
                 </body>
             </html>     
         `);
-        expect(heading).toBe("Test heading h2");
+        expect(html).toBe("Test heading h2");
     })
 
     test("Doesn't contain any heading", () => {
-        const heading = getHeadingFromHTML(`
+        const html = getHeadingFromHTML(`
             <html>
                 <body>
                     <p>This is a test</p>
@@ -64,13 +64,27 @@ describe("first heading from html", () => {
             </html>   
             
         `);
-        expect(heading).toBe("");
+        expect(html).toBe("");
     })
 });
 
 describe("first paragraph from html", () => {
-    test("Contains paragraph", () => {
-        const paragraph = getFirstParagraphFromHTML(`
+    test("Contains paragraph with second paragraph", () => {
+        const html = getFirstParagraphFromHTML(`
+            <html>
+                <body>
+                    <h1>Test heading h1</h1>
+                    <p>This is a test</p>
+                    <p>This is a second paragraph</p>
+                </body>
+            </html>  
+        `);
+
+        expect(html).toBe("This is a test");
+    });
+
+    test("Contains paragraph with nested paragraph", () => {
+        const html = getFirstParagraphFromHTML(`
             <html>
                 <body>
                     <h1>Test heading h1</h1>
@@ -83,6 +97,22 @@ describe("first paragraph from html", () => {
             </html>  
         `);
 
-        expect(paragraph).toBe("This is a test");
+        expect(html).toBe("This is a test");
+    });
+
+    test("Contains no paragraph", () => {
+        const html = getFirstParagraphFromHTML(`
+            <html>
+                <body>
+                    <h1>This is a heading</h1>
+                    <h2>This is a second heading</h2>
+                    <div>
+                        <h3>Third heading</h3>
+                    </div>
+                </body>
+            </html>    
+        `);
+
+        expect(html).toBe("");
     });
 });
