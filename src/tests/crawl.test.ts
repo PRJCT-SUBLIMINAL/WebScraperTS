@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { normalizeURL, getHeadingFromHTML, getFirstParagraphFromHTML } from "../crawl.ts";
+import { normalizeURL, getHeadingFromHTML, getFirstParagraphFromHTML, getURLsFromHTML, getImagesFromHTML, extractPageData } from "../crawl.ts";
 
 describe("normalizeURL tests", () => {
 
@@ -116,3 +116,121 @@ describe("first paragraph from html", () => {
         expect(html).toBe("");
     });
 });
+
+describe("URLs from HTML", () => {
+    test("getURLsFromHTML single URL", () => {
+        const inputURL = "https://crawler-test.com";
+        const inputBody = `<html><body><a href="/path/one"><span>Boot.dev</span></a></body></html>`;
+
+        const actual = getURLsFromHTML(inputBody, inputURL);
+        const expected = ["https://crawler-test.com/path/one"];
+
+        expect(actual).toEqual(expected);
+    });
+
+    test("getURLsFromHTML multiple URLs", () => {
+        const inputURL = "https://crawler-test.com";
+        const inputBody = `
+            <html>
+                <body>
+                    <a href="/path/one"><span>Boot.dev</span></a>
+                    <a href="/path/two"><span>Boot2.dev</span>></a>
+                </body>
+            </html>
+        `;
+
+        const actual = getURLsFromHTML(inputBody, inputURL);
+        const expected = [
+            "https://crawler-test.com/path/one",
+            "https://crawler-test.com/path/two"
+        ];
+
+        expect(actual).toEqual(expected);
+    })
+
+    test("getImagesFromHTML single image", () => {
+        const inputURL = "https://crawler-test.com";
+        const inputBody = `<html><body><img src="/logo.png" alt="Logo"></body></html>`;
+
+        const actual = getImagesFromHTML(inputBody, inputURL);
+        const expected = ["https://crawler-test.com/logo.png"];
+
+        expect(actual).toEqual(expected);
+    });
+
+    test("getImagesFromHTML multiple images", () => {
+        const inputURL = "https://crawler-test.com";
+        const inputBody = `
+            <html>
+                <body>
+                    <img src="/logo.png" alt="Logo">
+                    <img src="/logo2.png" alt="Logo 2">
+                </body>
+            </html>
+        `;
+
+        const actual = getImagesFromHTML(inputBody, inputURL);
+        const expected = [
+            "https://crawler-test.com/logo.png",
+            "https://crawler-test.com/logo2.png"
+        ];
+
+        expect(actual).toEqual(expected);
+    });
+
+    test("extractPageData basic", () => {
+        const inputURL = "https://crawler-test.com";
+        const inputBody = `
+            <html><body>
+            <h1>Test Title</h1>
+            <p>This is the first paragraph.</p>
+            <a href="/link1">Link 1</a>
+            <img src="/image1.jpg" alt="Image 1">
+            </body></html>
+        `;
+
+        const actual = extractPageData(inputBody, inputURL);
+        const expected = {
+            url: "https://crawler-test.com",
+            heading: "Test Title",
+            firstParagraph: "This is the first paragraph.",
+            outgoingLinks: ["https://crawler-test.com/link1"],
+            imageURLs: ["https://crawler-test.com/image1.jpg"],
+        };
+
+        expect(actual).toEqual(expected);
+    });
+
+    test("extractPageData advanced", () => {
+        const inputURL = "https://crawler-test.com";
+        const inputBody = `
+            <html><body>
+            <h1>Test Title 2</h1>
+            <p>This is the first paragraph.</p>
+            <p>This is the second paragraph</p>
+            <a href="/link1">Link 1</a>
+            <img src="/image1.jpg" alt="Image 1">
+            <a href="/link2">Link2</a>
+            <img src="/image2.jpg" alt="Image 2">
+            </body></html>
+        `;
+
+        const actual = extractPageData(inputBody, inputURL);
+        const expected = {
+            url: "https://crawler-test.com",
+            heading: "Test Title 2",
+            firstParagraph: "This is the first paragraph.",
+            outgoingLinks: [
+                "https://crawler-test.com/link1",
+                "https://crawler-test.com/link2"
+            ],
+            imageURLs: [
+                "https://crawler-test.com/image1.jpg",
+                "https://crawler-test.com/image2.jpg"
+            ],
+        };
+
+        expect(actual).toEqual(expected);
+    });
+});
+
