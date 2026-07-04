@@ -1,5 +1,105 @@
 import { JSDOM } from "jsdom";
-import {type LimitFunction} from "p-limit";
+import pLimit, {type LimitFunction} from "p-limit";
+
+export type ExtractedPageData = {
+    url: string;
+    heading: string;
+    firstParagraph: string;
+    outgoingLinks: string[];
+    imageURLs: string[];
+};
+
+export class ConcurrentCrawler {
+    baseURL: string;
+    pages: Record<string, ExtractedPageData>;
+    limit: LimitFunction;
+    maxPages: number;
+    shouldStop: boolean;
+    allTasks: Set<Promise<void>>;
+
+    constructor(baseURL: string, pages: Record<string, ExtractedPageData>, limit: LimitFunction, maxPages: number) {
+        this.baseURL = baseURL;
+        this.pages = pages;
+        this.limit = limit;
+        this.maxPages = maxPages;
+        this.shouldStop = false;
+        this.allTasks = new Set();
+    }
+
+    addPageVisit(normalizedURL: string): boolean {
+        if (this.shouldStop) return false;
+
+        if (this.pages[normalizedURL]) return false;
+
+        if (Object.keys(this.pages).length >= this.maxPages) {
+            this.shouldStop = true;
+            console.log("Reached maximum number of pages to crawl.")
+            return false;
+        }
+
+        return true;
+    }
+
+    private async getHTML(url: string): Promise<string> {
+        return await this.limit(async () => {
+            const res = await fetch(url, {
+                headers: {
+                    "User-Agent": "WebScraperTS"
+                }
+            });
+
+            if (res.status >= 400) throw new Error(`HTTP error: [${res.status}] ${res.statusText}`);
+
+            const header = res.headers.get("content-type");
+            if (!header?.includes("text/html")) throw new Error(`Wrong content type in header [content-type] ${header}`);
+
+            const html = await res.text();
+            return html;
+        });
+    };
+
+    // Needs updating to class methods.
+    async crawlPage(currentURL: string): Promise<void> {
+        if (new URL(this.baseURL).hostname !== new URL(currentURL).hostname) return;
+        if (this.shouldStop) return;
+
+        const normalizedCurrentURL = normalizeURL(currentURL);
+
+        const isNewPage = this.addPageVisit(normalizedCurrentURL);
+
+        if (!isNewPage) return;
+
+        console.log(`crawling ${currentURL}`);
+
+        try {
+            const currentHTML = await this.getHTML(currentURL);
+
+            const promises: Promise<void>[] = [];
+
+            const data = extractPageData(currentHTML, currentURL);
+            this.pages[normalizedCurrentURL] = data;
+
+            for (const url of data.outgoingLinks) {
+                const task = this.crawlPage(url);
+                this.allTasks.add(task);
+                task.finally(() => this.allTasks.delete(task));
+                promises.push(task);
+            }
+
+            await Promise.all(promises);
+            return;
+
+        } catch (err) {
+            console.error(err);
+            return;
+        }
+    }
+
+    async crawl() {
+        await this.crawlPage(this.baseURL)
+        return this.pages;
+    }
+}
 
 export function normalizeURL(urlString: string): string {
     const urlObj = new URL(urlString);
@@ -59,14 +159,6 @@ export function getImagesFromHTML(html: string, baseURL: string): string[] {
     return images;
 };
 
-export type ExtractedPageData = {
-    url: string;
-    heading: string;
-    firstParagraph: string;
-    outgoingLinks: string[];
-    imageURLs: string[];
-};
-
 export function extractPageData(html: string, pageURL: string): ExtractedPageData {
     const url = pageURL;
     const heading = getHeadingFromHTML(html);
@@ -83,86 +175,7 @@ export function extractPageData(html: string, pageURL: string): ExtractedPageDat
     };
 };
 
-export class ConcurrentCrawler {
-    baseURL: string;
-    pages: Record<string, number>;
-    limit: LimitFunction;
-
-    constructor(baseURL: string, pages: Record<string, number>, limit: LimitFunction) {
-        this.baseURL = baseURL;
-        this.pages = pages;
-        this.limit = limit;
-    }
-
-    addPageVisit(normalizedURL: string): boolean {
-        if (this.pages[normalizedURL] > 0) {
-            this.pages[normalizedURL]++;
-            return false;
-        }
-        this.pages[normalizedURL] = 1;
-        return true;
-    }
-
-    private async getHTML(url: string): Promise<string> {
-        return await this.limit(async () => {
-            try {
-                const res = await fetch(url, {
-                    headers: {
-                        "User-Agent": "WebScraperTS"
-                    }
-                });
-
-                if (res.status >= 400) {
-                    throw new Error(`HTTP error: [${res.status}] ${res.statusText}`);
-                    return;
-                };
-
-                const header = res.headers.get("content-type");
-                if (!header?.includes("text/html")) {
-                    throw new Error(`Wrong content type in header [content-type] ${header}`);
-                    return;
-                };
-
-                const html = await res.text();
-                console.log(html);
-                return html;
-            }
-            
-            catch(err) {
-                console.error(err);
-                return html;
-            }
-        });
-    };
-
-    // Needs updating to class methods.
-    async crawlPage(currentURL: string): Promise<void> {
-        if (new URL(this.baseURL).hostname !== new URL(currentURL).hostname) return this.pages;
-
-        const normalizedCurrentURL = normalizeURL(currentURL);
-
-        if (this.pages[normalizedCurrentURL] > 0) {
-            pages[normalizedCurrentURL]++;
-            return pages;
-        };
-
-        pages[normalizedCurrentURL] = 1;
-
-        try {
-            const currentHTML = await getHTML(currentURL);
-            console.log(currentHTML);
-
-            const urls = getURLsFromHTML(currentHTML, baseURL);
-
-            for (const url of urls) {
-                pages = await crawlPage(baseURL, url, pages);
-            }
-
-            return pages;
-
-        } catch (err) {
-            console.error(err);
-            return pages;
-        }
-    }
+export async function crawlSiteAsync(baseURL: string, maxConcurrency: number, maxPages: number) {
+    const crawler = new ConcurrentCrawler(baseURL, {}, pLimit(maxConcurrency), maxPages);
+    return await crawler.crawl();
 }

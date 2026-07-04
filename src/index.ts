@@ -1,26 +1,29 @@
 import { argv } from "node:process";
-import { crawlPage } from "./crawl.ts";
+import { crawlSiteAsync } from "./crawl.ts";
 
 async function main() {
-    while (true) {
-        if (argv.length < 3) {
-            console.error("No arguments given. Exiting.");
-            process.exit(1);
-        } else if (argv.length > 3) {
-            console.error("Too many arguments given. Exiting.");
-            process.exit(1);
-        };
+    if (argv.length < 5) {
+        console.error("Not enough arguments given. Exiting.");
+        process.exit(1);
+    } else if (argv.length > 5) {
+        console.error("Too many arguments given. Exiting.");
+        process.exit(1);
+    };
 
-        const baseURL = argv[2];
+    const baseURL = argv[2];
+    const maxConcurrency = Number(argv[3]);
+    const maxPages = Number(argv[4]);
 
-        console.log(`Starting at ${baseURL}`);
+    console.log(`Starting at ${baseURL}`);
 
-        const pages = await crawlPage(baseURL);
+    const pages = await crawlSiteAsync(baseURL, maxConcurrency, maxPages);
 
-        console.log(pages);
+    console.log("Finished crawling.");
 
-        process.exit(0);
-    }
+    const firstPage = Object.values(pages)[0];
+    if (firstPage) console.log(`First page record: ${firstPage["url"]} - ${firstPage["heading"]}`)
+
+    process.exit(0);
 }
 
 main();
