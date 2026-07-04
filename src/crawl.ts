@@ -80,4 +80,63 @@ export function extractPageData(html: string, pageURL: string): ExtractedPageDat
         outgoingLinks,
         imageURLs
     };
+};
+
+export async function getHTML(url: string) {
+    try {
+        const res = await fetch(url, {
+            headers: {
+                "User-Agent": "WebScraperTS"
+            }
+        });
+
+        if (res.status >= 400) {
+            throw new Error(`HTTP error: [${res.status}] ${res.statusText}`);
+            return;
+        };
+
+        const header = res.headers.get("content-type");
+        if (!header?.includes("text/html")) {
+            throw new Error(`Wrong content type in header [content-type] ${header}`);
+            return;
+        };
+
+        const html = await res.text();
+        console.log(html);
+        return html;
+
+    } catch (err) {
+        console.error(err);
+        return html;
+    };
+};
+
+export async function crawlPage(baseURL: string, currentURL: string = baseURL, pages: Record<string, number> = {}) {
+    if (new URL(baseURL).hostname !== new URL(currentURL).hostname) return pages;
+
+    const normalizedCurrentURL = normalizeURL(currentURL);
+
+    if (pages[normalizedCurrentURL] > 0) {
+        pages[normalizedCurrentURL]++;
+        return pages;
+    };
+
+    pages[normalizedCurrentURL] = 1;
+
+    try {
+        const currentHTML = await getHTML(currentURL);
+        console.log(currentHTML);
+
+        const urls = getURLsFromHTML(currentHTML, baseURL);
+
+        for (const url of urls) {
+            pages = await crawlPage(baseURL, url, pages);
+        }
+
+        return pages;
+
+    } catch (err) {
+        console.error(err);
+        return pages;
+    }
 }
