@@ -1,4 +1,5 @@
 import { JSDOM } from "jsdom";
+import {type LimitFunction} from "p-limit";
 
 export function normalizeURL(urlString: string): string {
     const urlObj = new URL(urlString);
@@ -82,61 +83,86 @@ export function extractPageData(html: string, pageURL: string): ExtractedPageDat
     };
 };
 
-export async function getHTML(url: string) {
-    try {
-        const res = await fetch(url, {
-            headers: {
-                "User-Agent": "WebScraperTS"
+export class ConcurrentCrawler {
+    baseURL: string;
+    pages: Record<string, number>;
+    limit: LimitFunction;
+
+    constructor(baseURL: string, pages: Record<string, number>, limit: LimitFunction) {
+        this.baseURL = baseURL;
+        this.pages = pages;
+        this.limit = limit;
+    }
+
+    addPageVisit(normalizedURL: string): boolean {
+        if (this.pages[normalizedURL] > 0) {
+            this.pages[normalizedURL]++;
+            return false;
+        }
+        this.pages[normalizedURL] = 1;
+        return true;
+    }
+
+    private async getHTML(url: string): Promise<string> {
+        return await this.limit(async () => {
+            try {
+                const res = await fetch(url, {
+                    headers: {
+                        "User-Agent": "WebScraperTS"
+                    }
+                });
+
+                if (res.status >= 400) {
+                    throw new Error(`HTTP error: [${res.status}] ${res.statusText}`);
+                    return;
+                };
+
+                const header = res.headers.get("content-type");
+                if (!header?.includes("text/html")) {
+                    throw new Error(`Wrong content type in header [content-type] ${header}`);
+                    return;
+                };
+
+                const html = await res.text();
+                console.log(html);
+                return html;
+            }
+            
+            catch(err) {
+                console.error(err);
+                return html;
             }
         });
-
-        if (res.status >= 400) {
-            throw new Error(`HTTP error: [${res.status}] ${res.statusText}`);
-            return;
-        };
-
-        const header = res.headers.get("content-type");
-        if (!header?.includes("text/html")) {
-            throw new Error(`Wrong content type in header [content-type] ${header}`);
-            return;
-        };
-
-        const html = await res.text();
-        console.log(html);
-        return html;
-
-    } catch (err) {
-        console.error(err);
-        return html;
-    };
-};
-
-export async function crawlPage(baseURL: string, currentURL: string = baseURL, pages: Record<string, number> = {}) {
-    if (new URL(baseURL).hostname !== new URL(currentURL).hostname) return pages;
-
-    const normalizedCurrentURL = normalizeURL(currentURL);
-
-    if (pages[normalizedCurrentURL] > 0) {
-        pages[normalizedCurrentURL]++;
-        return pages;
     };
 
-    pages[normalizedCurrentURL] = 1;
+    // Needs updating to class methods.
+    async crawlPage(currentURL: string): Promise<void> {
+        if (new URL(this.baseURL).hostname !== new URL(currentURL).hostname) return this.pages;
 
-    try {
-        const currentHTML = await getHTML(currentURL);
-        console.log(currentHTML);
+        const normalizedCurrentURL = normalizeURL(currentURL);
 
-        const urls = getURLsFromHTML(currentHTML, baseURL);
+        if (this.pages[normalizedCurrentURL] > 0) {
+            pages[normalizedCurrentURL]++;
+            return pages;
+        };
 
-        for (const url of urls) {
-            pages = await crawlPage(baseURL, url, pages);
+        pages[normalizedCurrentURL] = 1;
+
+        try {
+            const currentHTML = await getHTML(currentURL);
+            console.log(currentHTML);
+
+            const urls = getURLsFromHTML(currentHTML, baseURL);
+
+            for (const url of urls) {
+                pages = await crawlPage(baseURL, url, pages);
+            }
+
+            return pages;
+
+        } catch (err) {
+            console.error(err);
+            return pages;
         }
-
-        return pages;
-
-    } catch (err) {
-        console.error(err);
-        return pages;
     }
 }
