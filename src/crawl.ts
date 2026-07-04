@@ -80,7 +80,7 @@ export class ConcurrentCrawler {
             this.pages[normalizedCurrentURL] = data;
 
             for (const url of data.outgoingLinks) {
-                const task = this.crawlPage(url);
+                const task = await this.crawlPage(url);
                 this.allTasks.add(task);
                 task.finally(() => this.allTasks.delete(task));
                 promises.push(task);
